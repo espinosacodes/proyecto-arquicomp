@@ -48,6 +48,36 @@ def load_and_process_data(file_path):
                 'data_type': 'float' if 'float' in sheet.lower() else 'double',
                 'sheet_name': sheet
             })
+        # Special case for Python versions b to f in tr5.xlsx (Hoja 7 to Hoja 11)
+        elif sheet in ['Hoja 7', 'Hoja 8', 'Hoja 9', 'Hoja 10', 'Hoja 11']:
+            # Map sheet names to versions: Hoja 7 -> b, Hoja 8 -> c, etc.
+            version_map = {'Hoja 7': 'b', 'Hoja 8': 'c', 'Hoja 9': 'd', 'Hoja 10': 'e', 'Hoja 11': 'f'}
+            version = version_map[sheet]
+            # Read the sheet to determine data_type
+            df = pd.read_excel(file_path, sheet_name=sheet)
+            if 'TypeData' in df.columns:
+                if df['TypeData'].str.lower().str.contains('double').any():
+                    version_info.append({
+                        'version': version,
+                        'language': 'python',
+                        'data_type': 'double',
+                        'sheet_name': sheet
+                    })
+                if df['TypeData'].str.lower().str.contains('float').any():
+                    version_info.append({
+                        'version': version,
+                        'language': 'python',
+                        'data_type': 'float',
+                        'sheet_name': sheet
+                    })
+            else:
+                # Default to float if TypeData column is missing
+                version_info.append({
+                    'version': version,
+                    'language': 'python',
+                    'data_type': 'float',
+                    'sheet_name': sheet
+                })
     
     # Combine data from all sheets
     all_data = []
@@ -86,68 +116,54 @@ def load_and_process_data(file_path):
                 'Ver': 'version',
                 'TypeData': 'data_type',
                 'typedata': 'data_type',
+                'typeData': 'data_type',
                 'version': 'version'
             })
             
+            # If 'data_type' is not in columns but 'TypeData' is, copy it
+            if 'data_type' not in df.columns and 'TypeData' in df.columns:
+                df['data_type'] = df['TypeData']
+            
+            # Set the version column for all rows if info['version'] is set
+            if info['version']:
+                df['version'] = info['version']
+            
             # Add metadata
             df['language'] = info['language']
-            if 'data_type' not in df.columns:
-                df['data_type'] = info['data_type']
-            else:
+            
+            # Debug print for data_type values
+            if 'data_type' in df.columns:
+                df['data_type'] = df['data_type'].astype(str).str.strip().str.lower()
+                print(f"\nSheet {info['sheet_name']} - Before filtering:")
+                print(f"Unique data_type values: {df['data_type'].unique()}")
+                print(f"Filtering for: {info['data_type']}")
+                print(f"First few rows:\n{df.head()}")
+                
                 # If data_type is in the sheet, use it to filter
-                df = df[df['data_type'].str.lower() == info['data_type'].lower()]
-            
-            # For Python in tr5.xlsx (combined sheet), use 'version' and 'data_type' columns directly
-            if info['language'].lower() == 'python' and 'float & double' in info['sheet_name'].lower():
-                if 'version' not in df.columns and 'Ver' in df.columns:
-                    df = df.rename(columns={'Ver': 'version'})
-                if 'data_type' not in df.columns and 'TypeData' in df.columns:
-                    df = df.rename(columns={'TypeData': 'data_type'})
-                df['version'] = df['version'].astype(str).str.lower().str.strip()
-                df['data_type'] = df['data_type'].astype(str).str.lower().str.strip()
-                # Filter for the correct data_type
-                df = df[df['data_type'] == info['data_type']]
-                # Only keep versions a-f
-                df = df[df['version'].isin(['a', 'b', 'c', 'd', 'e', 'f'])]
-            # For Java in tr5.xlsx, extract version from the 'version' column
-            elif info['language'].lower() == 'java' and file_path.endswith('tr5.xlsx'):
-                if 'version' not in df.columns and 'Ver' in df.columns:
-                    df = df.rename(columns={'Ver': 'version'})
-                df['version'] = df['version'].astype(str).str.lower().str.strip()
-                # Only keep versions a-f
-                df = df[df['version'].isin(['a', 'b', 'c', 'd', 'e', 'f'])]
-            # For Java and Python in tr9.xlsx, extract version letter from the 'version' column
-            elif info['language'].lower() in ['java', 'python']:
-                if 'version' not in df.columns:
-                    print(f"No 'version' column found in sheet {info['sheet_name']}. Columns found: {list(df.columns)}")
-                    skipped_sheets.append(info['sheet_name'])
-                    continue
-                # Extract version from the version column (e.g., "Java_ver(A)" or "Py_ver(A)" -> "a")
-                df['version'] = df['version'].astype(str).str.extract(r'[A-Za-z_]+\(([A-Fa-f])\)', expand=False)
-                # Convert to lowercase and strip whitespace
-                df['version'] = df['version'].str.lower().str.strip()
-                # Filter out any rows where version extraction failed
-                df = df.dropna(subset=['version'])
-                # Only keep versions a-f
-                df = df[df['version'].isin(['a', 'b', 'c', 'd', 'e', 'f'])]
+                filtered = df[df['data_type'] == info['data_type'].strip().lower()]
+                print(f"\nAfter filtering for {info['data_type']}:")
+                print(f"Number of rows: {len(filtered)}")
+                if not filtered.empty:
+                    print(f"First few rows:\n{filtered.head()}")
+                df = filtered
             else:
-                # For C/C++, use the version from the sheet name
-                if info['version']:
-                    df['version'] = info['version']
-                elif 'version' in df.columns:
-                    df['version'] = df['version'].astype(str).str.strip().str.lower()
+                df['data_type'] = info['data_type']
             
-            # Clean version column
-            df['version'] = df['version'].astype(str).str.strip().str.lower()
-            
-            # Convert time columns to numeric
-            if 'time' in df.columns:
-                df['time'] = pd.to_numeric(df['time'].astype(str).str.replace(',', '.'), errors='coerce')
+            # Convert time columns to numeric, handling both comma and dot decimal separators
             if 'Normalized_ns' in df.columns:
-                df['Normalized_ns'] = pd.to_numeric(df['Normalized_ns'].astype(str).str.replace(',', '.'), errors='coerce')
+                df['Normalized_ns'] = df['Normalized_ns'].astype(str).str.replace(',', '.').astype(float)
+                print(f"\nAfter converting Normalized_ns to numeric:")
+                print(f"Number of rows: {len(df)}")
+                print(f"Number of NaN values: {df['Normalized_ns'].isna().sum()}")
+                if not df.empty:
+                    print(f"First few rows:\n{df.head()}")
             
             # Drop rows with missing values
             df = df.dropna(subset=['Normalized_ns', 'version', 'language', 'data_type'])
+            print(f"\nAfter dropping NaN values:")
+            print(f"Number of rows: {len(df)}")
+            if not df.empty:
+                print(f"First few rows:\n{df.head()}")
             
             if not df.empty:
                 all_data.append(df)
@@ -183,6 +199,9 @@ def plot_all_versions_comparison(r5_df, r9_df):
     # Create plots directory if it doesn't exist
     os.makedirs('plots', exist_ok=True)
     
+    # Set the style for better visualization
+    plt.style.use('default')
+    
     # Get unique combinations of language and data type
     languages = sorted(r5_df['language'].unique())
     data_types = sorted(r5_df['data_type'].unique())
@@ -200,27 +219,51 @@ def plot_all_versions_comparison(r5_df, r9_df):
                 print(f"No data available for {lang} {dtype}")
                 continue
             
-            # Create figure
-            plt.figure(figsize=(12, 6))
+            # Create figure with larger size
+            plt.figure(figsize=(15, 8))
             
             # Create boxplot
             plot_df = pd.concat([
-                r5_subset.assign(Processor='R5'),
-                r9_subset.assign(Processor='R9')
+                r5_subset.assign(Processor='R5 5600X'),
+                r9_subset.assign(Processor='R9 5900X')
             ])
             
-            # Use high contrast colors
-            sns.boxplot(x='version', y='Normalized_ns', hue='Processor', data=plot_df,
-                       palette=['#1f77b4', '#ff7f0e'])
+            # Create the boxplot with improved styling
+            ax = sns.boxplot(x='version', y='Normalized_ns', hue='Processor', data=plot_df,
+                           palette=['#1f77b4', '#ff7f0e'], width=0.7)
             
-            plt.title(f'Performance Comparison - {lang} {dtype}')
-            plt.xlabel('Algorithm Version')
-            plt.ylabel('Normalized Time (ns)')
-            plt.xticks(rotation=45)
+            # Add individual data points with some jitter
+            sns.stripplot(x='version', y='Normalized_ns', hue='Processor', data=plot_df,
+                         palette=['#1f77b4', '#ff7f0e'], dodge=True, size=4, alpha=0.3)
+            
+            # Customize the plot
+            plt.title(f'Performance Comparison - {lang} {dtype}', fontsize=16, pad=20)
+            plt.xlabel('Algorithm Version', fontsize=12)
+            plt.ylabel('Normalized Time (ns)', fontsize=12)
+            
+            # Rotate x-axis labels for better readability
+            plt.xticks(rotation=45, ha='right')
+            
+            # Add grid for better readability
+            plt.grid(True, linestyle='--', alpha=0.7)
+            
+            # Adjust legend
+            plt.legend(title='Processor', title_fontsize=12, fontsize=10)
+            
+            # Add mean values as text above each box
+            for i, processor in enumerate(['R5 5600X', 'R9 5900X']):
+                for j, version in enumerate(sorted(plot_df['version'].unique())):
+                    subset = plot_df[(plot_df['Processor'] == processor) & (plot_df['version'] == version)]
+                    mean_val = subset['Normalized_ns'].mean()
+                    std_val = subset['Normalized_ns'].std()
+                    plt.text(j + (i-0.5)*0.4, mean_val, f'{mean_val:.1f}\n±{std_val:.1f}', 
+                            ha='center', va='bottom', fontsize=8)
+            
+            # Adjust layout to prevent label cutoff
             plt.tight_layout()
             
-            # Save plot
-            plt.savefig(f'plots/performance_comparison_{lang}_{dtype}.png')
+            # Save plot with high DPI for better quality
+            plt.savefig(f'plots/performance_comparison_{lang}_{dtype}.png', dpi=300, bbox_inches='tight')
             plt.close()
     
     # Create performance summary

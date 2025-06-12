@@ -13,11 +13,11 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 def load_and_prepare_data():
     # Load Ryzen 5 data
-    df_r5 = pd.read_excel("data r5 and r9/Tiempos de ejecucion (Ryzen 5) - Tamano muestra total (15) - Lab Arquitectura computadores - Proyecto Final.xlsx")
+    df_r5 = pd.read_excel("data/tr5.xlsx")
     df_r5['processor'] = 'Ryzen 5'
     
     # Load Ryzen 9 data
-    df_r9 = pd.read_excel("data r5 and r9/tiempos de ejecucion ryzen 9 n=15_combined.xlsx")
+    df_r9 = pd.read_excel("data/tr9.xlsx")
     df_r9['processor'] = 'Ryzen 9'
     
     # Combine datasets
@@ -131,22 +131,22 @@ def create_visualizations(df):
     # 1. Box plot by processor and version
     plt.figure(figsize=(15, 8))
     sns.boxplot(x='version', y='Normalized_ns', hue='processor', data=df)
-    plt.title('Performance Distribution by Processor and Algorithm Version')
+    plt.title('Performance Distribution by Processor and Algorithm Version (Python Updated)')
     plt.xlabel('Algorithm Version')
     plt.ylabel('Normalized Time (ns)')
     plt.xticks(rotation=45)
     plt.tight_layout()
-    plt.savefig('performance_by_processor_version.png')
+    plt.savefig('performance_by_processor_version_python_updated.png')
     plt.close()
     
     # 2. Scatter plot with regression line
     plt.figure(figsize=(15, 8))
     sns.regplot(data=df, x='n', y='Normalized_ns', scatter_kws={'alpha':0.5})
-    plt.title('Performance vs Matrix Size with Regression Line')
+    plt.title('Performance vs Matrix Size with Regression Line (Python Updated)')
     plt.xlabel('Matrix Size (n)')
     plt.ylabel('Normalized Time (ns)')
     plt.tight_layout()
-    plt.savefig('performance_vs_matrix_size.png')
+    plt.savefig('performance_vs_matrix_size_python_updated.png')
     plt.close()
     
     # 3. Interaction plot (only if we have multiple levels for both factors)
@@ -154,24 +154,24 @@ def create_visualizations(df):
         plt.figure(figsize=(15, 8))
         sns.pointplot(data=df, x='version', y='Normalized_ns', hue='processor', 
                      markers=['o', 's'], linestyles=['-', '--'])
-        plt.title('Interaction Plot: Version × Processor')
+        plt.title('Interaction Plot: Version × Processor (Python Updated)')
         plt.xlabel('Algorithm Version')
         plt.ylabel('Mean Normalized Time (ns)')
         plt.xticks(rotation=45)
         plt.tight_layout()
-        plt.savefig('interaction_plot.png')
+        plt.savefig('interaction_plot_python_updated.png')
         plt.close()
     
     # 4. Violin plot
     plt.figure(figsize=(15, 8))
     sns.violinplot(data=df, x='version', y='Normalized_ns', hue='processor', 
                   split=True, inner='quart')
-    plt.title('Performance Distribution (Violin Plot)')
+    plt.title('Performance Distribution (Violin Plot) (Python Updated)')
     plt.xlabel('Algorithm Version')
     plt.ylabel('Normalized Time (ns)')
     plt.xticks(rotation=45)
     plt.tight_layout()
-    plt.savefig('performance_violin_plot.png')
+    plt.savefig('performance_violin_plot_python_updated.png')
     plt.close()
     
     # 5. Q-Q plot for each group
@@ -179,9 +179,9 @@ def create_visualizations(df):
     for i, (name, group) in enumerate(df.groupby(['processor', 'version', 'data_type'], observed=True)):
         plt.subplot(1, len(df.groupby(['processor', 'version', 'data_type'], observed=True)), i+1)
         sm.qqplot(group['Normalized_ns'], line='45')
-        plt.title(f'Q-Q Plot: {name}')
+        plt.title(f'Q-Q Plot: {name} (Python Updated)')
     plt.tight_layout()
-    plt.savefig('qq_plots.png')
+    plt.savefig('qq_plots_python_updated.png')
     plt.close()
 
 def main():
