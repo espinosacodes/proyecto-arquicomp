@@ -1,0 +1,17 @@
+Statistical Analysis Results
+=========================
+
+Basic Statistics:
+                                count      mean       std  ...      50%      75%     max
+processor version    data_type                             ...                          
+Ryzen 9   C++_ver(A) float      120.0  0.685453  0.327156  ...  0.62045  0.89410  1.9521
+          C++ver(a)  float       60.0  2.590207  0.076518  ...  2.58510  2.61705  2.8610
+
+[2 rows x 8 columns]
+
+Assumption Tests:
+Normality and homogeneity of variances tests results are shown above.
+
+Statistical Tests:
+Both parametric (ANOVA) and non-parametric (Kruskal-Wallis) tests were performed.
+Post-hoc tests include both Tukey's HSD and Mann-Whitney U with Bonferroni correction.
